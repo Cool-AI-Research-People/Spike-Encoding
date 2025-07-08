@@ -1,6 +1,6 @@
 # Spike Encoding
 This repository contains common methods for encoding and generating spikes.
-
+ 
 # Installation
 To install this repository as a package use
 > pip install git+https://github.com/Alex-Vasilache/Spike-Encoding.git
