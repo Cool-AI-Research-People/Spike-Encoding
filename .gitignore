@@ -2,3 +2,5 @@
 *.pyc
 build/
 *.egg-info
+.vscode/
+venv/
