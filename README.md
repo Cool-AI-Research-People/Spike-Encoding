@@ -177,7 +177,7 @@ LIF[^4] (Leaky Integrate-and-Fire) encoding treats the input signal as a current
 The method has several parameters:
 - Threshold: Controls how much voltage must accumulate before a spike is generated (optimizable)
 - Down Spike: If set to True, the neuron can also generate spikes when the value gets lower than -threshold. This is not biologically plausible, but can be useful in some cases.
-
+ 
 Here's an example using a simple signal:
 
 ```python
