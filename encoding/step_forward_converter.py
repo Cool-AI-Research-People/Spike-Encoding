@@ -69,35 +69,70 @@ class StepForwardConverter(BaseConverter):
         self.scale_factor = scale_factor
 
     def encode_3d(self, signal: torch.Tensor, threshold):
-        # Signal has shape: [batch, features, time_steps]
-        batch, features, time_steps = signal.shape
-        # self.threshold has shape [features]
+        original_shape = signal.shape
+        # Reshape explicitly to [B, C, T]
+        if signal.ndim == 1:
+            signal = signal.unsqueeze(0).unsqueeze(0)  # [1, 1, T]
+            print(f"[ENCODE] Input 1D reshaped to [B,C,T]: {signal.shape}")
+        elif signal.ndim == 2:
+            signal = signal.unsqueeze(0)  # [1, C, T]
+            print(f"[ENCODE] Input 2D reshaped to [B,C,T]: {signal.shape}")
+        elif signal.ndim == 3:
+            print(f"[ENCODE] Input already 3D [B,C,T]: {signal.shape}")
+        else:
+            raise ValueError(f"[ENCODE] Unexpected signal shape {original_shape}, expected 1D, 2D, or 3D.")
+
+        print(f"[ENCODE] Input reshaped to [B,C,T]: {signal.shape}")
+
+        B, C, T = signal.shape
         device = signal.device
-        if threshold == None:
+        if threshold is None:
             threshold = self.threshold.to(device)
         else:
             threshold = Tensor([threshold]).to(device)
 
+        # Broadcast threshold to shape [B*C]
         threshold = (signal[:, :, 0] + threshold - signal[:, :, 0]).reshape(-1)
-        signal = signal.reshape(threshold.shape[0], time_steps).detach().clone()
-        # The signal now has shape = [features, time_steps] and threshold has shape = [features]
+        # Reshape input to [B*C, T]
+        signal = signal.reshape(threshold.shape[0], T).detach().clone()
+
+        # The signal now has shape = [B*C, T] and threshold has shape = [B*C]
         up_spikes = torch.zeros_like(signal)
         down_spikes = torch.zeros_like(signal)
         base = signal[:, 0].detach().clone()
-        for t in range(1, time_steps):
+        for t in range(1, T):
             current = signal[:, t].detach().clone()
             up_spikes[current > base + threshold, t] = 1
             base[current > base + threshold] += threshold[current > base + threshold]
             down_spikes[current < base - threshold, t] = -1
             base[current < base - threshold] -= threshold[current < base - threshold]
 
-        up_spikes = up_spikes.reshape(batch, features, time_steps)
-        down_spikes = down_spikes.reshape(batch, features, time_steps)
+        # Reshape back to [B, C, T]
+        up_spikes = up_spikes.reshape(B, C, T)
+        down_spikes = down_spikes.reshape(B, C, T)
 
-        if not self.down_spike:
-            return torch.stack((up_spikes, torch.zeros_like(signal)))
-        else:
-            return torch.stack((up_spikes, down_spikes))
+        # Stack spikes to [2, B, C, T]
+        encoded = torch.stack((up_spikes, down_spikes), dim=0) if self.down_spike else torch.stack((up_spikes, torch.zeros_like(up_spikes)), dim=0)
+
+        print(f"[ENCODE] Output shape before squeeze: {encoded.shape}, after squeeze: {encoded.squeeze().shape}")
+
+        # Squeeze and log retained/removed dims
+        squeezed = encoded.squeeze()
+        final_shape = squeezed.shape
+        kept_dims = []
+        removed_dims = []
+        labels = ['polarity', 'B', 'C', 'T']
+        for i, (before, after) in enumerate(zip(encoded.shape, final_shape)):
+            if before == after:
+                kept_dims.append(labels[i])
+            else:
+                removed_dims.append(labels[i])
+        print(f"[ENCODE] Retained dims: {kept_dims}, Removed dims: {removed_dims}")
+        print(f"[ENCODE] Up spike and Down spike encoded with shape: {encoded.shape}")
+        print(f"[ENCODE] Down spike is present (down_spike={self.down_spike})")
+
+        # Return always [2, B, C, T] for decoder compatibility
+        return encoded
 
     def encode(
         self,
@@ -152,38 +187,43 @@ class StepForwardConverter(BaseConverter):
                     current < base - threshold
                 ]
             if not down_spike:
-                return torch.stack((up_spikes, torch.zeros_like(signal)))
+                encoded = torch.stack((up_spikes, torch.zeros_like(signal)))
+                return encoded.squeeze(1) if encoded.shape[1] == 1 else encoded
             else:
-                return torch.stack((up_spikes, down_spikes))
+                encoded = torch.stack((up_spikes, down_spikes))
+                return encoded.squeeze(1) if encoded.shape[1] == 1 else encoded
 
     def decode_3d(
         self, spikes: torch.Tensor, initial_value: float = 0.0, threshold=None
     ):
-        assert spikes.ndimension() == 4
-        # Assume shape [polarity, batch, features, time_steps]
-        polarity, batch, features, time_steps = spikes.shape
-        spikes = spikes[0].add(spikes[1])
-        # spikes has shape: [batch, features, time_steps]
+        # Accept [2, B, C, T] input
+        if spikes.ndimension() < 4:
+            raise ValueError("[DECODE] decode_3d expects input of shape [2, B, C, T]")
 
-        # self.threshold has shape [features]
+        print(f"[DECODE] Input reshaped to [2,B,C,T] or [B,C,T]: {spikes.shape}")
+        polarity, B, C, T = spikes.shape
+        # Combine up and down spikes
+        spikes = spikes[0].add(spikes[1])  # up + down
+        # spikes has shape: [B, C, T]
+
         device = spikes.device
-        if threshold == None:
+        if threshold is None:
             threshold = self.threshold.to(device)
         else:
             threshold = Tensor([threshold]).to(device)
+        # Broadcast threshold to [B*C]
         threshold = (spikes[:, :, 0] + threshold - spikes[:, :, 0]).reshape(-1)
-        spikes = spikes.reshape(threshold.shape[0], time_steps).detach().clone()
+        # Reshape input to [B*C, T]
+        spikes = spikes.reshape(threshold.shape[0], T).detach().clone()
 
-        if type(initial_value) == float or type(initial_value) == int:
+        # initial_value handling
+        if isinstance(initial_value, (float, int)):
             initial_value = Tensor([initial_value]).to(device)
-            initial_value = torch.ones((batch, features)).to(device) * initial_value
-
-        # initial_value has shape [batch, features]
+            initial_value = torch.ones((B, C)).to(device) * initial_value
         initial_value = initial_value.reshape(threshold.shape[0])
 
+        # weighted spikes and reconstruction
         weighted_spikes = threshold[:, None] * spikes.squeeze()
-
-        # Shape of weighted_spikes is now [batch * features, time_steps]
         time_steps = weighted_spikes.shape[1]
         start = initial_value
         reconstructed = torch.zeros_like(weighted_spikes)
@@ -191,7 +231,8 @@ class StepForwardConverter(BaseConverter):
         for t in range(1, time_steps):
             value = weighted_spikes[:, t]
             reconstructed[:, t] = reconstructed[:, t - 1] + value
-        return reconstructed.reshape(batch, features, time_steps)
+        # Reshape back to [B, C, T]
+        return reconstructed.reshape(B, C, T)
 
     def decode(self, spikes: torch.Tensor, initial_value: float = 0, threshold=None):
         """Attempts to reconstruct the original signal using the given spikes.
@@ -207,6 +248,9 @@ class StepForwardConverter(BaseConverter):
         torch.Tensor
             A tensor of dimension 2 in the form [features, signal_values].
         """
+        # Handle case where input is [2, T] (polarity first), e.g., encoded from 1D signal
+        if spikes.ndim == 2 and spikes.shape[0] == 2:
+            spikes = spikes[0] + spikes[1]
         if spikes.ndimension() > 3:
             return self.decode_3d(spikes, initial_value, threshold)
         if spikes.ndimension() == 3:
@@ -230,7 +274,7 @@ class StepForwardConverter(BaseConverter):
         for t in range(1, time_steps):
             value = weighted_spikes[:, t]
             reconstructed[:, t] = reconstructed[:, t - 1] + value
-        return reconstructed
+        return reconstructed.squeeze()
 
     # Note: optimize_3d is not implemented with optuna
     def optimize_3d(
@@ -319,10 +363,12 @@ class StepForwardConverter(BaseConverter):
                 threshold = trial.suggest_float("threshold", 0.001, 0.5)
                 thresh = Tensor([threshold])
                 spikes = self.encode(data[i], thresh)
+                # Ensure decode output is squeezed to remove extra dimensions
                 reconstruction = self.decode(
                     spikes, initial_value=data[i, 0], threshold=thresh
-                )
-                error_val = error_function(reconstruction, torch.atleast_2d(data[i]))
+                ).squeeze()
+                # Ensure data[i] is squeezed as well to match shape
+                error_val = error_function(reconstruction, data[i].squeeze())
                 return error_val
 
             optuna.logging.set_verbosity(optuna.logging.WARNING)  # hide logging

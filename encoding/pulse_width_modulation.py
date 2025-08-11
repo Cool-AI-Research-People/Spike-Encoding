@@ -68,8 +68,9 @@ class PulseWidthModulation(BaseConverter):
         Returns:
         - spikes: The encoded spikes as a tensor
         """
-        signal.squeeze_()
-        signal = torch.atleast_2d(signal)
+       
+        signal = signal.reshape(-1, signal.shape[-1])
+        print(f"[INFO] Reshaped input to [C, T]: {signal.shape}")
         if signal.ndimension() > 2:
             raise ValueError(
                 f"{type(self).__name__}.{self.encode.__name__}() only supports input tensors with dimension <=2, but got dimension {signal.ndim}."
@@ -78,7 +79,9 @@ class PulseWidthModulation(BaseConverter):
             signal_norm = signal
         else:
             signal_norm = self.normalize_tensor(signal)
-        self.init_val = signal[:][0]
+        # BUG FIX 1: Correctly get the initial value (at t=0) for each channel.
+        # The original code `signal[:][0]` incorrectly took the entire time series of the first channel.
+        self.init_val = signal_norm[:, 0]
         frequency = self.frequency if frequency.numel() == 0 else frequency
         self.frequency = frequency
         down_spike = self.down_spike if down_spike == None else down_spike
@@ -123,10 +126,12 @@ class PulseWidthModulation(BaseConverter):
             up_spikes[(pwm[:, t] == 1) & (pwm[:, t - 1] != 1), t] = 1
             down_spikes[(pwm[:, t] == -1) & (pwm[:, t - 1] != -1), t] = -1
 
-        if not down_spike:
-            return torch.stack((up_spikes, torch.zeros_like(signal_norm[0])))
-        else:
-            return torch.stack((up_spikes, down_spikes))
+        spikes = torch.stack((up_spikes, down_spikes)) if down_spike else torch.stack((up_spikes, torch.zeros_like(signal_norm[0])))
+
+        # Squeeze output to remove singleton dimensions, preserving only non-1 dimensions: polarity, C, T
+        output = spikes.squeeze()
+        print(f"[INFO] Output shape after squeeze: {output.shape} (Retained dimensions: polarity, C, T )")
+        return output
 
     def decode(
         self,
@@ -143,18 +148,18 @@ class PulseWidthModulation(BaseConverter):
         Returns:
         - reconstructed_signal: the reconstructed signal.
         """
-        if spikes.ndimension() == 3:
-            # Assume shape [polarity, features, spikes]
+        # Handle different input shapes for spikes
+        if spikes.ndimension() == 2 and spikes.shape[0] == 2 and self.down_spike:
             spikes = spikes[0].add(spikes[1])
+        elif spikes.ndimension() == 3:
+            spikes = spikes[0].add(spikes[1])
+        
         spikes = torch.atleast_2d(spikes)
 
         reconstructed_signal = torch.zeros_like(spikes)
         self.init_val = self.init_val if init_val.numel() == 0 else init_val.clone()
-        if len(self.init_val) < spikes.shape[0]:
-            print("init_val is not the same length as the number of signals")
-            for i in range(spikes.shape[0]):
-                self.init_val[i] = self.init_val[0]
-        self.init_val = self.init_val[: len(spikes)]
+        
+        self.init_val = self.init_val[: spikes.shape[0]]
 
         for i in range(len(self.init_val)):
             self.init_val[i] = self.scale_factor[i] * (
@@ -162,12 +167,20 @@ class PulseWidthModulation(BaseConverter):
             )
 
         frequency = self.frequency
+        
+        # BUG FIX: Added frequency expansion logic from the 'encode' method.
+        # This ensures that if a single frequency is provided, it's broadcasted to all channels.
+        num_channels = spikes.shape[0]
+        while len(frequency) < num_channels:
+            frequency = torch.cat(
+                (frequency, frequency[: num_channels - len(frequency)])
+            )
+        frequency = frequency[:num_channels]
+
+
         carrier_signal = np.linspace(0, 1, 1000)
 
         reconstructed_signal[:, 0] = self.init_val
-        # for t in range(1, spikes.shape[1]) :
-        #   reconstructed_signal[:, t] = reconstructed_signal[: ,t-1]
-        #  reconstructed_signal[spikes[:, t] != spikes[:, t-1], t] = carrier_signal[t]
 
         for r in range(spikes.shape[0]):
             last_spike_time = 0

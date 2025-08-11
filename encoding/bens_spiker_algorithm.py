@@ -80,8 +80,16 @@ class BensSpikerAlgorithm(BaseConverter):
         Returns:
             spikes (torch.Tensor): The encoded spikes as a tensor.
         """
-        signal.squeeze_()
-        signal = torch.atleast_2d(signal)
+        # === Standardize signal shape to [B, C, T] ===
+        original_shape = signal.shape
+        signal = signal.unsqueeze(0) if signal.ndim == 1 else signal  # [T] → [1, T]
+        signal = signal.unsqueeze(0) if signal.ndim == 2 else signal  # [C, T] → [1, C, T]
+        B, C, T = signal.shape
+        print(f"[BSA] Input shape adjusted from {original_shape} to {signal.shape} (B={B}, C={C}, T={T})")
+
+        B, C, T = signal.shape
+        signal = signal.reshape(B * C, T)  # Flatten to [B*C, T] for batch-wise processing
+
         if isNormed:
             signal_norm = signal
         else:
@@ -137,6 +145,14 @@ class BensSpikerAlgorithm(BaseConverter):
 
             spike_trains[row] = out
 
+        spike_trains = spike_trains.reshape(B, C, T)
+        squeeze_shape = spike_trains.shape
+        spike_trains = spike_trains.squeeze()
+        print(f"[BSA] Output shape reshaped to {squeeze_shape}, squeezed to {spike_trains.shape} "
+              f"(B={'kept' if squeeze_shape[0] > 1 else 'squeezed'}, "
+              f"C={'kept' if squeeze_shape[1] > 1 else 'squeezed'}, "
+              f"T={'kept' if squeeze_shape[2] > 1 else 'squeezed'})")
+
         return spike_trains
 
     def decode(self, spikes: torch.Tensor):
@@ -175,7 +191,10 @@ class BensSpikerAlgorithm(BaseConverter):
             )
             result_vector.append(scaled_signal.tolist())
 
-        return result_vector
+        if len(result_vector) == 1:
+            return torch.tensor(result_vector[0])
+        else:
+            return torch.tensor(result_vector)
 
     def optimize(
         self,
@@ -224,8 +243,10 @@ class BensSpikerAlgorithm(BaseConverter):
                     isNormed=False,
                 )
                 decoded_signal = self.decode(encoded_signal)
-                loss = error_function(Tensor(decoded_signal)[0], data[i])
-
+                decoded_tensor = Tensor(decoded_signal)
+                if decoded_tensor.shape != data[i].shape:
+                    decoded_tensor = decoded_tensor.squeeze()
+                loss = error_function(decoded_tensor, data[i])
                 return loss
 
             print(f"Optimizing for signal {i+1}/{len(synth_sig)}:")
