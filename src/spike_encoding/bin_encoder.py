@@ -3,9 +3,9 @@ import numpy as np
 from numpy.typing import NDArray as ndarray
 import numpy.random as rndm
 
-from encoding.base_converter import BaseConverter
-from encoding.gymnasium_bounds_finder import ScalerFactory
-from encoding.encoder_common import poisson, rate
+from spike_encoding.base_converter import BaseConverter
+from spike_encoding.gymnasium_bounds_finder import ScalerFactory
+from spike_encoding.encoder_common import poisson, rate
 
 
 def gaussian_response(x, mu, sigma=0.3):

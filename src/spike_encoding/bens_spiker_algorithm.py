@@ -5,7 +5,7 @@ from scipy.signal import firwin
 import optuna
 from optuna.samplers import TPESampler
 
-from encoding.base_converter import BaseConverter
+from spike_encoding.base_converter import BaseConverter
 
 
 class BensSpikerAlgorithm(BaseConverter):

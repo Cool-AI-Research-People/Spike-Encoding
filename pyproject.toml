@@ -1,0 +1,25 @@
+[project]
+name = "spike-encoding"
+version = "0.1.0"
+description = "A spike-encoding repository for converting conventional data to spiking data. Includes trainable encoding methods and PyTorch compatibility, as well as integration of some common datasets."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "colorama>=0.4.6",
+    "gymnasium[classic-control]>=1.2.0",
+    "joblib>=1.5.2",
+    "optuna>=4.5.0",
+    "pandas>=2.3.2",
+    "scikit-learn>=1.7.1",
+    "torch>=2.8.0",
+    "torchmetrics>=1.8.2",
+    "tqdm>=4.67.1",
+]
+authors = [
+  { name="Alexandru Vasilache", email="vasilache@fzi.de" },
+  { name="Jona Scholz", email="jona.scholz@kit.edu"}
+]
+
+[build-system]
+requires = ["uv_build >= 0.7.19"]
+build-backend = "uv_build"

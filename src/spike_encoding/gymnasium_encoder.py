@@ -4,10 +4,10 @@ from sklearn.preprocessing import MinMaxScaler
 from numpy.typing import NDArray as ndarray
 import numpy.random as rndm
 
-from encoding.base_converter import BaseConverter
+from spike_encoding.base_converter import BaseConverter
 
 from .rate_step_forward_converter import RateStepForwardConverter as Converter
-from encoding.encoder_common import poisson, rate
+from spike_encoding.encoder_common import poisson, rate
 
 
 class GymnasiumEncoder(BaseConverter):
