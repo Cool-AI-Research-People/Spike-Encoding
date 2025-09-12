@@ -2,16 +2,18 @@
 This repository contains common methods for encoding and generating spikes.
 
 # Installation
-To install this repository as a package use
-> pip install git+https://github.com/Alex-Vasilache/Spike-Encoding.git
+Install via pip
+> pip install spike-encoding
+
+**NOTE** Requires python >= 3.10 (!)
 
 **NOTE** This will also install torch and torchmetrics
 
 You can import it like any other package. For instance, you can import the StepForwardConverter as follows
-> from encoding.step_forward_converter import StepForwardConverter
+> from spike_encoding.step_forward_converter import StepForwardConverter
 
 **NOTE** There may be compatibility issues with prior versions. If you are upgrading to a newer version, please use 
-> pip uninstall Spike-Encoding
+> pip uninstall spike-encoding
 
 and install it again. If you install the newer version without uninstalling, there may be strange errors.
 
@@ -47,7 +49,7 @@ signal = torch.tensor([[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 0.9, 0.8, 0.7, 0.6, 0.5]])
 Then to encode the signal, we do
 
 ```python
-from encoding.bens_spiker_algorithm import BensSpikerAlgorithm
+from spike_encoding.bens_spiker_algorithm import BensSpikerAlgorithm
 
 bsa = BensSpikerAlgorithm()
 spikes = bsa.encode(signal)
@@ -93,7 +95,7 @@ signal = torch.tensor([[0.1, 0.3, 0.2, 0.4, 0.8, 0.6, 0.7, 0.9, 0.5, 0.3, 0.2]])
 Then to encode the signal, we do
 
 ```python
-from encoding.step_forward_converter import StepForwardConverter
+from spike_encoding.step_forward_converter import StepForwardConverter
 
 sf = StepForwardConverter(threshold=torch.tensor([0.1])) # (optional parameter, default value 0.5)
 spikes = sf.encode(signal)
@@ -142,7 +144,7 @@ signal = torch.tensor([[0.2, 0.4, 0.6, 0.8, 1.0, 0.8, 0.6, 0.4, 0.2]])
 To encode the signal:
 
 ```python
-from encoding.pulse_width_modulation import PulseWidthModulation
+from spike_encoding.pulse_width_modulation import PulseWidthModulation
 
 # Create encoder with default frequency=1Hz
 pwm = PulseWidthModulation(frequency=torch.tensor([1.0]))
@@ -189,7 +191,7 @@ signal = torch.tensor([[0.5, 0.3, 0.1, 0.4, 0.8, 1.0, 0.7, 0.3, 0.6]])
 To encode the signal:
 
 ```python
-from encoding.lif_based_encoding import LIFBasedEncoding
+from spike_encoding.lif_based_encoding import LIFBasedEncoding
 
 # Create encoder with default threshold=0.5 and membrane_constant=0.9
 lif = LIFBasedEncoding(threshold=torch.tensor([0.5]), membrane_constant=torch.tensor([0.2]))
