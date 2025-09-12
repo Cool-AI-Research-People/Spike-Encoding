@@ -3,7 +3,7 @@ name = "spike-encoding"
 version = "0.1.0"
 description = "A spike-encoding repository for converting conventional data to spiking data. Includes trainable encoding methods and PyTorch compatibility, as well as integration of some common datasets."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "colorama>=0.4.6",
     "gymnasium[classic-control]>=1.2.0",
