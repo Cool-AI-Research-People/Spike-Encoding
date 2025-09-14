@@ -15,12 +15,8 @@ def load_shd():
     Returns:
         tuple: Paths to the extracted train and test h5 files
     """
-    # Get the directory where the calling script is located
-    frame = inspect.currentframe().f_back
-    caller_dir = Path(frame.f_globals["__file__"]).parent
-
-    # Create data directory
-    data_dir = caller_dir / "data"
+    # Always use current working directory root + data
+    data_dir = Path.cwd() / "data"
     data_dir.mkdir(exist_ok=True)
 
     # Dataset URLs
