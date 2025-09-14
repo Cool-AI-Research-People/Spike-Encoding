@@ -30,7 +30,7 @@ def convert_to_sparse_tensor(times_data, units_data, max_time, n_features, n_tim
             sparse_matrix = sp.coo_matrix(
                 (data, (time_bins, units)),
                 shape=(n_timesteps, n_features),
-                dtype=np.float32
+                dtype=np.float32,
             )
 
         sparse_samples.append(sparse_matrix)
@@ -45,17 +45,11 @@ def process_shd_to_sparse(train_path, test_path, n_timesteps):
     max_time = 1.36914
     n_features = 700
 
-    print(f"Converting to sparse tensors...")
-    print(f"Parameters: max_time={max_time}, n_features={n_features}, n_timesteps={n_timesteps}")
+    X_train_sparse = convert_to_sparse_tensor(
+        train_times, train_units, max_time, n_features, n_timesteps
+    )
+    X_test_sparse = convert_to_sparse_tensor(
+        test_times, test_units, max_time, n_features, n_timesteps
+    )
 
-    X_train_sparse = convert_to_sparse_tensor(train_times, train_units, max_time, n_features, n_timesteps)
-    X_test_sparse = convert_to_sparse_tensor(test_times, test_units, max_time, n_features, n_timesteps)
-
-    metadata = {
-        'max_time': max_time,
-        'n_features': n_features,
-        'n_timesteps': n_timesteps,
-        'dt': max_time / n_timesteps
-    }
-
-    return X_train_sparse, y_train, X_test_sparse, y_test, metadata
+    return X_train_sparse, y_train, X_test_sparse, y_test
