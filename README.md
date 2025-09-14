@@ -385,6 +385,11 @@ If you want to work on this repository, please note that we are using unittests 
 ## Formatting
 In order to ensure consistent formatting, please install the "black formatter" extension. Follow the instructions on the extension page to ensure it is active. Furthermore, please enable "Format on Save" if you are using VS Code, or the equivalent if you are using a different IDE. 
 
+## Releases
+Make sure to run `tag_release.sh <version>` for every release in order to trigger updates on PiPy. This will activate the workflow in .github/workflows/workflow.yml which will build and release the new verison. 
+
+An example of this call could be `tag_release.sh 0.1.3` 
+
 # License and Copyright
 
 Copyright © 2025 Alexandru Vasilache
