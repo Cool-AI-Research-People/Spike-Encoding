@@ -1,22 +1,10 @@
-import inspect
 import urllib.request
 import zipfile
 from pathlib import Path
 
 
 def load_shd():
-    """
-    Downloads and extracts the SHD (Spiking Heidelberg Digits) dataset.
-
-    Creates a 'data' folder in the directory where this function is called from,
-    downloads the training and test datasets from zenkelab.org, extracts them,
-    and cleans up the zip files.
-
-    Returns:
-        tuple: Paths to the extracted train and test h5 files
-    """
-    # Always use current working directory root + data
-    data_dir = Path.cwd() / "data"
+    data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
 
     # Dataset URLs
